@@ -9,71 +9,85 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
-    
+
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
       - name: Install Nix
         uses: cachix/install-nix-action@v24
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
-      
-      - name: Calculate SHA256 and download
-        id: hash
-        run: |
-          URL="https://app.warp.dev/download?channel=preview&package=deb"
-          echo "Prefetching from URL: $URL"
-          OUTPUT=$(nix store prefetch-file --name warp-preview.deb "$URL" 2>&1)
-          HASH=$(echo "$OUTPUT" | grep -oP "hash '\K[^']+")
-          echo "HASH=$HASH" >> $GITHUB_OUTPUT
-          echo "Calculated hash: $HASH"
-      
-      - name: Download and extract version
+
+      - name: Extract version from latest preview .deb
         id: version
         run: |
           echo "Downloading .deb to extract version..."
           DEB="$RUNNER_TEMP/warp-preview.deb"
-          curl -L -o "$DEB" "https://app.warp.dev/download?channel=preview&package=deb"
-          VERSION=$(dpkg-deb -I "$DEB" | grep "^ Version:" | awk '{print $2}')
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Found version: $VERSION"
-      
+          curl -fL -o "$DEB" "https://app.warp.dev/download?channel=preview&package=deb"
+          VERSION=$(dpkg-deb -I "$DEB" | awk '/^ Version:/ {print $2}')
+          # releases.warp.dev's directory uses an underscore before the trailing
+          # counter (preview_02) while the filename keeps the dot (preview.02).
+          VERSION_PATH=$(echo "$VERSION" | sed -E 's|\.([0-9]+)$|_\1|')
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "VERSION_PATH=$VERSION_PATH" >> "$GITHUB_OUTPUT"
+          echo "Found version: $VERSION (path: $VERSION_PATH)"
+
+      - name: Prefetch amd64 .deb
+        id: hash_amd64
+        run: |
+          URL="https://releases.warp.dev/preview/v${{ steps.version.outputs.VERSION_PATH }}/warp-terminal-preview_${{ steps.version.outputs.VERSION }}_amd64.deb"
+          echo "Prefetching amd64 from: $URL"
+          OUTPUT=$(nix store prefetch-file --name warp-preview-amd64.deb "$URL" 2>&1)
+          HASH=$(echo "$OUTPUT" | grep -oP "hash '\K[^']+")
+          echo "HASH=$HASH" >> "$GITHUB_OUTPUT"
+          echo "amd64 hash: $HASH"
+
+      - name: Prefetch arm64 .deb
+        id: hash_arm64
+        run: |
+          URL="https://releases.warp.dev/preview/v${{ steps.version.outputs.VERSION_PATH }}/warp-terminal-preview_${{ steps.version.outputs.VERSION }}_arm64.deb"
+          echo "Prefetching arm64 from: $URL"
+          OUTPUT=$(nix store prefetch-file --name warp-preview-arm64.deb "$URL" 2>&1)
+          HASH=$(echo "$OUTPUT" | grep -oP "hash '\K[^']+")
+          echo "HASH=$HASH" >> "$GITHUB_OUTPUT"
+          echo "arm64 hash: $HASH"
+
       - name: Update flake.nix
         run: |
-          # Update version (pattern-based, not line-number dependent)
-          sed -i -E 's|version = ".*";|version = "${{ steps.version.outputs.VERSION }}";|' flake.nix
-          
-          # Update debSha (pattern-based, safe for slashes)
-          sed -i -E 's|debSha = "sha256-[^"]+";|debSha = "${{ steps.hash.outputs.HASH }}";|' flake.nix
-          
-          echo "Updated flake.nix with new version and hash"
-      
+          sed -i -E 's|^(\s*version = )"[^"]+";|\1"${{ steps.version.outputs.VERSION }}";|' flake.nix
+          sed -i -E 's|^(\s*versionPath = )"[^"]+";|\1"${{ steps.version.outputs.VERSION_PATH }}";|' flake.nix
+          sed -i -E 's|^(\s*amd64 = )"sha256-[^"]+";|\1"${{ steps.hash_amd64.outputs.HASH }}";|' flake.nix
+          sed -i -E 's|^(\s*arm64 = )"sha256-[^"]+";|\1"${{ steps.hash_arm64.outputs.HASH }}";|' flake.nix
+
+          echo "Updated flake.nix; diff:"
+          git --no-pager diff flake.nix
+
       - name: Update flake inputs
         run: |
           nix flake update
-      
+
       - name: Build package to verify
         run: |
           echo "Building package to verify changes..."
           nix build .#default --system x86_64-linux
-      
+
       - name: Check for changes
         id: changes
         run: |
           if git diff --quiet; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No changes detected"
           else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "Changes detected:"
             git --no-pager diff --stat
           fi
-      
+
       - name: Commit and push changes
         if: steps.changes.outputs.has_changes == 'true'
         run: |
