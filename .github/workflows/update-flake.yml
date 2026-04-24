@@ -5,6 +5,11 @@ on:
     # Run daily at 00:00 UTC
     - cron: '0 0 * * *'
   workflow_dispatch: # Allow manual triggering
+  push:
+    # TEMP: verify the reworked workflow against real releases on this branch.
+    # Remove before merging; scheduled + dispatch are the real triggers.
+    branches:
+      - claude/fix-github-actions-X0INK
 
 jobs:
   update:
@@ -89,7 +94,9 @@ jobs:
           fi
 
       - name: Commit and push changes
-        if: steps.changes.outputs.has_changes == 'true'
+        # Guard: only push on main. Test runs from other branches must not
+        # commit to main — they only validate the workflow end-to-end.
+        if: steps.changes.outputs.has_changes == 'true' && github.ref == 'refs/heads/main'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
