@@ -69,12 +69,12 @@
               libGL
               curl
               alsa-lib
-              xorg.libX11
-              xorg.libXext
-              xorg.libXcursor
-              xorg.libXi
-              xorg.libXrandr
-              xorg.libxcb
+              libx11
+              libxext
+              libxcursor
+              libxi
+              libxrandr
+              libxcb
               libxkbcommon
               wayland
               gtk3
@@ -122,10 +122,10 @@
                     pkgs.libxkbcommon
                     pkgs.wayland
                     pkgs.libdecor
-                    pkgs.xorg.libX11
-                    pkgs.xorg.libXcursor
-                    pkgs.xorg.libXi
-                    pkgs.xorg.libXrandr
+                    pkgs.libx11
+                    pkgs.libxcursor
+                    pkgs.libxi
+                    pkgs.libxrandr
                     pkgs.fontconfig
                     pkgs.freetype
                   ]
