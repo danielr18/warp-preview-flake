@@ -13,11 +13,11 @@
       # trailing counter ("preview_02"), while the filename keeps the dot
       # ("preview.02"). Until we add an auto-bump workflow, keep both forms
       # in lockstep when editing by hand.
-      version = "0.2026.05.06.15.42.preview.03";
-      versionPath = "0.2026.05.06.15.42.preview_03";
+      version = "0.2026.05.06.15.42.preview.04";
+      versionPath = "0.2026.05.06.15.42.preview_04";
       hashes = {
-        amd64 = "sha256-0eIqhl94CY9g7/ns90zYBcToeZ9cr4p1mP4CHleDVyc=";
-        arm64 = "sha256-rIYhkfg4pQIgpakbDTSAIgz+xjM+X1oVt3Gj+SYeOww=";
+        amd64 = "sha256-jaRUgmG2mL/rzyBN2Kib0+C5TdIpnQPT5YIoKE/1VVQ=";
+        arm64 = "sha256-/qOk+LYKtv70KKzx4fwCeD+CIyNMlSkp/vWICsKwAec=";
       };
 
       systemToDeb = {
